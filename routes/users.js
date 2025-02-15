@@ -29,7 +29,7 @@ router.post("/signup", async (req, res) => {
 
     // Generate a JWT token for the new user
     const token = jwt.sign({ id: newUser.id, email: newUser.email }, SECRET_KEY, {
-      expiresIn: "1h", // Token expiration time
+      expiresIn: "4h", // Token expiration time
     });
 
     res.status(201).json({

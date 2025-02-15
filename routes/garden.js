@@ -1,6 +1,87 @@
 const express = require("express");
 const router = express.Router();
-const { Garden, getGardenById } = require("../models/gardenModel");
+const { Garden, getGardenById, GardenImage } = require("../models/gardenModel");
+const AWS = require("aws-sdk");
+const authenticate = require("../middleware/authenticateToken");
+const validateRequest = require("../middleware/validateRequest");
+const fileUpload = require('express-fileupload');
+
+// Configure AWS S3
+const s3 = new AWS.S3({
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    region: process.env.AWS_REGION
+});
+
+// Image upload endpoint
+router.post("/upload-image", authenticate, async (req, res) => {
+    try {
+        // console.log("Request headers:", req.headers); // Log headers
+        // console.log("Request body:", req.body); // Log body
+        // console.log("Request files:", req.files); // Log files
+
+        if (!req.files || !req.files.image) {
+            return res.status(400).json({ error: "No image file provided" });
+        }
+
+        const file = req.files.image;
+        // console.log("File details:", file); // Log file details
+
+        const fileExtension = file.name.split(".").pop();
+        const fileName = `gardens/${Date.now()}-${Math.round(Math.random() * 1e9)}.${fileExtension}`;
+
+        const params = {
+            Bucket: process.env.S3_BUCKET_NAME,
+            Key: fileName,
+            Body: file.data,
+            ContentType: file.mimetype,
+        };
+
+        const result = await s3.upload(params).promise();
+        res.json({ imageUrl: result.Location });
+    } catch (error) {
+        console.error("Image upload failed:", error);
+        res.status(500).json({ error: error.message || "Failed to upload image" });
+    }
+});
+
+// Create garden endpoint
+router.post("/create-garden", authenticate, validateRequest, async (req, res) => {
+    console.error("Request Body:", req.body);
+    try {
+        const {
+            name,
+            description,
+            address,
+            latitude,
+            longitude,
+            total_land,
+            type,
+            images,
+        } = req.body;
+
+        // Create garden with transaction
+        const result = await Garden.createWithTransaction({
+            owner_id: req.user.id,
+            name,
+            description,
+            address,
+            longitude,
+            latitude,
+            total_land,
+            type: type || "community",
+            images
+        });
+
+        res.status(201).json({
+            message: "Garden created successfully",
+            data: result
+        });
+    } catch (error) {
+        console.error("Garden creation failed:", error);
+        res.status(500).json({ error: error.message || "Failed to create garden" });
+    }
+});
 
 // Get gardens with search, filter, and pagination
 router.get("/", async (req, res) => {

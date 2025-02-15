@@ -65,6 +65,90 @@ const Garden = {
             throw new Error("Failed to get garden count");
         }
     },
+
+    async createWithTransaction(gardenData) {
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+
+            // Create geography point
+            // const pointQuery = `
+            //     ST_SetSRID(ST_MakePoint($1, $2), 4326)
+            // `;
+
+            // Insert garden
+            const gardenQuery = `
+                INSERT INTO gardens (
+                    owner_id,
+                    name,
+                    description,
+                    location,
+                    address,
+                    total_land,
+                    type
+                ) VALUES ($1, $2, $3, ST_SetSRID(ST_MakePoint($4, $5), 4326), $6, $7, $8)
+                RETURNING *;
+            `;
+
+            // Correct parameter order: address is $6, total_land $7, type $8
+            const gardenValues = [
+                gardenData.owner_id,
+                gardenData.name,
+                gardenData.description,
+                gardenData.longitude, // $4: longitude
+                gardenData.latitude,   // $5: latitude
+                gardenData.address,
+                gardenData.total_land,
+                gardenData.type || 'community'
+            ];
+
+            const gardenResult = await client.query(gardenQuery, gardenValues);
+            const newGarden = gardenResult.rows[0];
+
+            // Insert images if any
+            if (gardenData.images && gardenData.images.length > 0) {
+                const imageQuery = `
+                    INSERT INTO garden_images (garden_id, image_url) VALUES ${gardenData.images.map((_, i) => `($1, $${i + 2})`).join(',')}
+                `;
+
+                const imageValues = [newGarden.id, ...gardenData.images];
+                await client.query(imageQuery, imageValues);
+            }
+
+            await client.query('COMMIT');
+            const { getGardenById } = require("./gardenModel");
+            return getGardenById(newGarden.id);
+        } catch (error) {
+            await client.query('ROLLBACK');
+            console.error('Transaction error:', error);
+            throw new Error('Failed to create garden');
+        } finally {
+            client.release();
+        }
+    },
+
+    //Helper method for creating point
+    // createPoint(longitude, latitude) {
+    //     return `ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)`;
+    // }
+};
+
+// Add image upload related functions
+const GardenImage = {
+    async uploadImage(gardenId, imageUrl) {
+        try {
+            const query = `
+                INSERT INTO garden_images (garden_id, image_url)
+                VALUES ($1, $2)
+                RETURNING *;
+            `;
+            const result = await pool.query(query, [gardenId, imageUrl]);
+            return result.rows[0];
+        } catch (error) {
+            console.error('Image upload failed:', error);
+            throw new Error('Failed to save image');
+        }
+    }
 };
 
 const getGardenById = async (id) => {
@@ -95,5 +179,6 @@ const getGardenById = async (id) => {
 
 module.exports = {
     Garden,
-    getGardenById,
+    GardenImage,
+    getGardenById
 };

@@ -4,6 +4,7 @@ const path = require('path');
 const cookieParser = require('cookie-parser');
 const logger = require('morgan');
 const cors = require('cors');  // Importing the cors module
+const fileUpload = require('express-fileupload');
 
 const indexRouter = require('./routes/index');
 const usersRouter = require('./routes/users');
@@ -16,10 +17,18 @@ const app = express();
 const corsOptions = {
   origin: 'http://localhost:5173',  // Frontend URL
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type'],
+  credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization'],
 };
 
 app.use(cors(corsOptions));  // Apply CORS middleware
+
+app.options('*', cors()); // Enable preflight for all routes
+
+app.use(fileUpload({
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit
+  abortOnLimit: true
+}));
 
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
