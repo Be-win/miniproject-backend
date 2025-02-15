@@ -14,7 +14,7 @@ const Garden = {
                              WHERE gi.garden_id = g.id
                              ORDER BY gi.uploaded_at
                              LIMIT 1),
-                            'default-garden.jpg'
+                            'https://placehold.co/600x400?text=No+Image'
                     ) as image_url
                 FROM gardens g
                 WHERE LOWER(g.name) LIKE LOWER($1)
