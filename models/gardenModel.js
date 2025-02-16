@@ -131,6 +131,98 @@ const Garden = {
     // createPoint(longitude, latitude) {
     //     return `ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)`;
     // }
+    async createLandRequest(landReqData) {
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+
+            // Insert land request
+            const landRequestQuery = `
+            INSERT INTO land_requests (
+                garden_id,
+                user_id,
+                requested_land,
+                contact_info,
+                message,
+                status
+            )
+            VALUES ($1, $2, $3, $4, $5, 'pending')
+            RETURNING *;
+        `;
+            const values = [
+                landReqData.garden_id,
+                landReqData.user_id,
+                landReqData.requested_land,
+                landReqData.contact_info,
+                landReqData.message
+            ];
+
+            const { rows } = await client.query(landRequestQuery, values);
+            await client.query('COMMIT');
+            return rows[0];
+        } catch (error) {
+            await client.query('ROLLBACK');
+            console.error('Transaction error:', error);
+            throw new Error('Failed to create land request');
+        } finally {
+            client.release();
+        }
+    },
+
+    async getLandRequestWithGarden(requestId) {
+        try {
+            const query = `
+                SELECT 
+                    lr.*,
+                    g.id AS garden_id,
+                    g.owner_id,
+                    g.name AS garden_name,
+                    g.total_land,
+                    g.allocated_land,
+                    g.address,
+                    g.type AS garden_type,
+                    g.created_at AS garden_created
+                FROM land_requests lr
+                JOIN gardens g ON lr.garden_id = g.id
+                WHERE lr.id = $1
+            `;
+
+            const { rows } = await pool.query(query, [requestId]);
+
+            if (rows.length === 0) return null;
+
+            // Structure the result
+            const landRequest = {
+                ...rows[0],
+                Garden: {
+                    id: rows[0].garden_id,
+                    owner_id: rows[0].owner_id,
+                    name: rows[0].garden_name,
+                    total_land: rows[0].total_land,
+                    allocated_land: rows[0].allocated_land,
+                    address: rows[0].address,
+                    type: rows[0].garden_type,
+                    created_at: rows[0].garden_created
+                }
+            };
+
+            // Remove duplicated fields
+            delete landRequest.garden_id;
+            delete landRequest.owner_id;
+            delete landRequest.garden_name;
+            delete landRequest.total_land;
+            delete landRequest.allocated_land;
+            delete landRequest.address;
+            delete landRequest.garden_type;
+            delete landRequest.garden_created;
+
+            return landRequest;
+        } catch (err) {
+            console.error("Database error:", err);
+            throw new Error("Failed to fetch land request with garden");
+        }
+    },
+
 };
 
 // Add image upload related functions

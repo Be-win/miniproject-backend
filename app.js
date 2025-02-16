@@ -10,13 +10,15 @@ const indexRouter = require('./routes/index');
 const usersRouter = require('./routes/users');
 const sustainabilityRouter = require("./routes/sustainability");
 const gardenRoutes = require("./routes/garden");
+const notificationRoutes = require("./routes/notifications");
+const resourceRoutes = require('./routes/resources');
 
 const app = express();
 
 // Enable CORS for your frontend origin (replace with your actual frontend URL if different)
 const corsOptions = {
   origin: 'http://localhost:5173',  // Frontend URL
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
   credentials: true,
   allowedHeaders: ['Content-Type', 'Authorization'],
 };
@@ -44,6 +46,8 @@ app.use('/', indexRouter);
 app.use('/users', usersRouter);
 app.use('/sustainability', sustainabilityRouter);
 app.use("/garden", gardenRoutes);
+app.use("/notifications", notificationRoutes);
+app.use("/api/resources", resourceRoutes);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
