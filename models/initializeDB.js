@@ -107,28 +107,42 @@ const createTables = async () => {
 
             CREATE TABLE IF NOT EXISTS land_requests
             (
-                id             SERIAL PRIMARY KEY,
-                garden_id      INTEGER        NOT NULL REFERENCES gardens (id) ON DELETE CASCADE,
-                user_id        INTEGER        NOT NULL REFERENCES users (id) ON DELETE CASCADE,
-                requested_land NUMERIC(10, 2) NOT NULL CHECK (requested_land > 0),
-                contact_info   VARCHAR(255)   NOT NULL,
-                message        TEXT,
-                status         VARCHAR(20)    NOT NULL CHECK (status IN ('pending', 'approved', 'rejected')),
-                created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                id                SERIAL PRIMARY KEY,
+                garden_id         INTEGER        NOT NULL REFERENCES gardens (id) ON DELETE CASCADE,
+                user_id           INTEGER        NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+                requested_land    NUMERIC(10, 2) NOT NULL CHECK (requested_land > 0),
+                contact_info      VARCHAR(255)   NOT NULL,
+                message           TEXT,
+                status            VARCHAR(20)    NOT NULL CHECK (status IN ('pending', 'approved', 'rejected', 'active', 'expired', 'pending_extension')),
+                created_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                start_date        DATE           NOT NULL,
+                end_date          DATE           NOT NULL,
+                extension_message TEXT,
+                previous_end_date DATE,
+                proposed_end_date DATE,
+                CONSTRAINT valid_dates CHECK (start_date <= end_date)
             );
+
+            CREATE INDEX IF NOT EXISTS idx_land_requests_status ON land_requests (status);
+            CREATE INDEX IF NOT EXISTS idx_land_requests_dates ON land_requests (start_date, end_date);
+            CREATE INDEX IF NOT EXISTS idx_land_requests_garden ON land_requests (garden_id);
+            CREATE INDEX IF NOT EXISTS idx_land_requests_user ON land_requests (user_id);
 
             CREATE TABLE IF NOT EXISTS land_allocation_notifications
             (
                 id         SERIAL PRIMARY KEY,
                 user_id    INTEGER     NOT NULL REFERENCES users (id) ON DELETE CASCADE,
                 garden_id  INTEGER     NOT NULL REFERENCES gardens (id) ON DELETE CASCADE,
-                type       VARCHAR(20) NOT NULL CHECK (type IN ('allocation', 'request', 'modification')),
+                type       VARCHAR(20) NOT NULL CHECK (type IN ('request', 'extension_request', 'status_update', 'expiration', 'extension_update')),
                 message    TEXT        NOT NULL,
                 is_read    BOOLEAN   DEFAULT false,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                from_user  INTEGER REFERENCES users (id)
+                from_user  INTEGER REFERENCES users (id) ON DELETE SET NULL,
+                request_id INTEGER REFERENCES land_requests (id) ON DELETE SET NULL
             );
+
+            CREATE INDEX IF NOT EXISTS idx_notifications_user_type ON land_allocation_notifications (user_id, type);
         `);
         console.log('Tables created successfully');
     } catch (err) {

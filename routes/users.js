@@ -3,12 +3,13 @@ const express = require("express");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const router = express.Router();
+const pool = require('../models/connection');
 const { createUser, getUserByEmail } = require("../models/userModel");
 
 const SECRET_KEY = process.env.JWT_SECRET // Replace with a strong secret key in production
 
 // Middleware to verify JWT
-const authenticateToken = require("../middleware/authenticateToken");
+const authenticate = require("../middleware/authenticateToken");
 
 // Route to create a new user (Signup)
 router.post("/signup", async (req, res) => {
@@ -96,6 +97,32 @@ router.get("/profile", async (req, res) => {
   } catch (error) {
     console.error("Error fetching user profile:", error);
     res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+// Get user's land allocations
+router.get("/allocations", authenticate, async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT
+        id,
+        garden_id,
+        requested_land,
+        CASE
+          WHEN status = 'pending_extension' THEN previous_end_date
+          ELSE end_date
+          END AS end_date,
+        proposed_end_date,
+        status
+      FROM land_requests
+      WHERE user_id = $1
+        AND status IN ('approved', 'pending_extension', 'active')
+    `, [req.user.id]);
+
+    res.json({ data: result.rows });
+  } catch (error) {
+    console.error("Error fetching allocations:", error);
+    res.status(500).json({ error: "Failed to fetch allocations" });
   }
 });
 

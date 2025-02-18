@@ -248,17 +248,19 @@ const getGardenById = async (id) => {
         const query = `
             SELECT
                 g.*,
+                u.name AS owner_name,
                 ST_X(ST_AsEWKT(g.location)::geometry) AS longitude,
                 ST_Y(ST_AsEWKT(g.location)::geometry) AS latitude,
                 COALESCE(
-                    jsonb_agg(gi.* ORDER BY gi.uploaded_at) 
-                    FILTER (WHERE gi.garden_id IS NOT NULL), 
-                    '[]'::jsonb
+                                jsonb_agg(gi.* ORDER BY gi.uploaded_at)
+                                FILTER (WHERE gi.garden_id IS NOT NULL),
+                                '[]'::jsonb
                 ) AS images
             FROM gardens g
-            LEFT JOIN garden_images gi ON g.id = gi.garden_id
+                     JOIN users u ON g.owner_id = u.id
+                     LEFT JOIN garden_images gi ON g.id = gi.garden_id
             WHERE g.id = $1
-            GROUP BY g.id;
+            GROUP BY g.id, u.name;
         `;
 
         const { rows } = await pool.query(query, [id]);
