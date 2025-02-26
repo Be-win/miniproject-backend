@@ -89,24 +89,27 @@ router.post("/create-garden", authenticate, validateRequest, async (req, res) =>
 // Get gardens with search, filter, and pagination
 router.get("/", async (req, res) => {
     try {
-        // Validate and parse input parameters
+        // Parse query parameters
         const page = parseInt(req.query.page, 10) || 1;
         const limit = parseInt(req.query.limit, 10) || 10;
         const search = req.query.search?.toString() || "";
         const type = req.query.type?.toString() || "";
+        const ownerId = req.query.owner_id ? parseInt(req.query.owner_id, 10) : null;
 
+        // Validate parameters
         if (page < 1 || limit < 1) {
-            return res.status(400).json({
-                error: "Invalid pagination parameters"
-            });
+            return res.status(400).json({error: "Invalid pagination parameters"});
+        }
+        if (ownerId && isNaN(ownerId)) {
+            return res.status(400).json({error: "Invalid owner ID format"});
         }
 
         const offset = (page - 1) * limit;
 
-        // Get data in parallel
+        // Get data with optional owner filter
         const [gardens, total] = await Promise.all([
-            Garden.getGardens({search, type, limit, offset}),
-            Garden.getTotalCount({search, type})
+            Garden.getGardens({search, type, limit, offset, ownerId}),
+            Garden.getTotalCount({search, type, ownerId})
         ]);
 
         const totalPages = Math.ceil(total / limit);
@@ -163,10 +166,10 @@ router.get("/:id", async (req, res) => {
 router.post("/:id/requests", authenticate, [
     body('requested_land').isFloat({min: 0.01}),
     body('start_date')
-        .isDate({ format: 'YYYY-MM-DD' })
+        .isDate({format: 'YYYY-MM-DD'})
         .withMessage('Start date must be in YYYY-MM-DD format'),
     body('end_date')
-        .isDate({ format: 'YYYY-MM-DD' })
+        .isDate({format: 'YYYY-MM-DD'})
         .withMessage('End date must be in YYYY-MM-DD format'),
     body('contact_info').isLength({min: 3}),
     body('message').isLength({min: 10})
@@ -432,11 +435,11 @@ router.get("/requests/:requestId", authenticate, async (req, res) => {
 // Extension request endpoint
 router.post("/requests/:id/extend", authenticate, [
     body('end_date').isDate(),
-    body('message').isLength({ min: 10 })
+    body('message').isLength({min: 10})
 ], async (req, res) => {
     try {
         const requestId = parseInt(req.params.id, 10);
-        const { end_date, message } = req.body;
+        const {end_date, message} = req.body;
 
         // Get request with current dates
         const request = await pool.query(`
@@ -447,7 +450,7 @@ router.post("/requests/:id/extend", authenticate, [
         `, [requestId]);
 
         if (!request.rows[0]) {
-            return res.status(404).json({ error: "Request not found" });
+            return res.status(404).json({error: "Request not found"});
         }
 
         const currentData = request.rows[0];
@@ -466,7 +469,7 @@ router.post("/requests/:id/extend", authenticate, [
             UPDATE land_requests
             SET previous_end_date = end_date,
                 proposed_end_date = $1,
-                status = 'pending_extension',
+                status            = 'pending_extension',
                 extension_message = $2
             WHERE id = $3
             RETURNING *
@@ -474,9 +477,8 @@ router.post("/requests/:id/extend", authenticate, [
 
         // Notification
         await pool.query(`
-            INSERT INTO land_allocation_notifications (
-                user_id, from_user, garden_id, type, message, request_id
-            ) VALUES ($1, $2, $3, $4, $5, $6)
+            INSERT INTO land_allocation_notifications (user_id, from_user, garden_id, type, message, request_id)
+            VALUES ($1, $2, $3, $4, $5, $6)
         `, [
             currentData.owner_id,
             req.user.id,
@@ -487,10 +489,10 @@ router.post("/requests/:id/extend", authenticate, [
             requestId
         ]);
 
-        res.json({ message: "Extension request submitted", data: updatedRequest.rows[0] });
+        res.json({message: "Extension request submitted", data: updatedRequest.rows[0]});
     } catch (error) {
         console.error("Extension error:", error);
-        res.status(500).json({ error: "Internal server error" });
+        res.status(500).json({error: "Internal server error"});
     }
 });
 
@@ -526,11 +528,13 @@ cron.schedule('0 0 * * *', async () => {
         // expiration notifications
         await pool.query(`
             INSERT INTO land_allocation_notifications (user_id, garden_id, type, message)
-            SELECT user_id, garden_id, 'expiration', 
+            SELECT user_id,
+                   garden_id,
+                   'expiration',
                    CONCAT('Your allocation of ', requested_land, ' units has expired')
-            FROM land_requests 
-            WHERE end_date < CURRENT_DATE 
-            AND status = 'active'
+            FROM land_requests
+            WHERE end_date < CURRENT_DATE
+              AND status = 'active'
         `);
 
         await pool.query('COMMIT');
@@ -546,30 +550,31 @@ cron.schedule('0 0 * * *', async () => {
 router.patch("/requests/:id/extend", authenticate, async (req, res) => {
     try {
         const requestId = parseInt(req.params.id, 10);
-        const { status } = req.body;
+        const {status} = req.body;
 
         // Validate input
         if (!['approved', 'rejected'].includes(status)) {
-            return res.status(400).json({ error: "Invalid status. Use 'approved' or 'rejected'" });
+            return res.status(400).json({error: "Invalid status. Use 'approved' or 'rejected'"});
         }
 
         // Get request with extension details
         const request = await pool.query(`
             SELECT lr.*, g.owner_id, g.total_land, g.allocated_land
             FROM land_requests lr
-            JOIN gardens g ON lr.garden_id = g.id
-            WHERE lr.id = $1 AND lr.status = 'pending_extension'
+                     JOIN gardens g ON lr.garden_id = g.id
+            WHERE lr.id = $1
+              AND lr.status = 'pending_extension'
         `, [requestId]);
 
         if (!request.rows[0]) {
-            return res.status(404).json({ error: "Extension request not found or already processed" });
+            return res.status(404).json({error: "Extension request not found or already processed"});
         }
 
         const currentRequest = request.rows[0];
 
         // Authorization check
         if (currentRequest.owner_id !== req.user.id) {
-            return res.status(403).json({ error: "Unauthorized" });
+            return res.status(403).json({error: "Unauthorized"});
         }
 
         await pool.query('BEGIN');
@@ -578,11 +583,10 @@ router.patch("/requests/:id/extend", authenticate, async (req, res) => {
             // Update end date and clear proposal
             await pool.query(`
                 UPDATE land_requests
-                SET 
-                    end_date = proposed_end_date,
+                SET end_date          = proposed_end_date,
                     previous_end_date = end_date,
                     proposed_end_date = NULL,
-                    status = 'active',
+                    status            = 'active',
                     extension_message = NULL
                 WHERE id = $1
             `, [requestId]);
@@ -599,10 +603,9 @@ router.patch("/requests/:id/extend", authenticate, async (req, res) => {
             // Reject extension - reset fields
             await pool.query(`
                 UPDATE land_requests
-                SET 
-                    proposed_end_date = NULL,
+                SET proposed_end_date = NULL,
                     previous_end_date = NULL,
-                    status = 'active',
+                    status            = 'active',
                     extension_message = NULL
                 WHERE id = $1
             `, [requestId]);
@@ -614,9 +617,8 @@ router.patch("/requests/:id/extend", authenticate, async (req, res) => {
             : `Extension request rejected`;
 
         await pool.query(`
-            INSERT INTO land_allocation_notifications (
-                user_id, from_user, garden_id, type, message, request_id
-            ) VALUES ($1, $2, $3, $4, $5, $6)
+            INSERT INTO land_allocation_notifications (user_id, from_user, garden_id, type, message, request_id)
+            VALUES ($1, $2, $3, $4, $5, $6)
         `, [
             currentRequest.user_id,
             req.user.id,
@@ -629,13 +631,67 @@ router.patch("/requests/:id/extend", authenticate, async (req, res) => {
         await pool.query('COMMIT');
         res.json({
             message: `Extension ${status} successfully`,
-            data: { new_end_date: status === 'approved' ? currentRequest.proposed_end_date : null }
+            data: {new_end_date: status === 'approved' ? currentRequest.proposed_end_date : null}
         });
 
     } catch (error) {
         await pool.query('ROLLBACK');
         console.error("Extension processing error:", error);
-        res.status(500).json({ error: "Internal server error" });
+        res.status(500).json({error: "Internal server error"});
+    }
+});
+
+
+router.get("/:id/land_requests", async (req, res) => {
+    try {
+        // Validate garden ID from URL parameter
+        const gardenId = parseInt(req.params.id, 10);
+        if (isNaN(gardenId) || gardenId < 1) {
+            return res.status(400).json({error: "Invalid garden ID"});
+        }
+
+        // (Optional) Check if the garden exists
+        const garden = await getGardenById(gardenId);
+        if (!garden) {
+            return res.status(404).json({error: "Garden not found"});
+        }
+
+        // Fetch all land requests for the given garden and join with users to get the volunteer name
+        const result = await pool.query(
+            `
+                SELECT lr.*,
+                       u.name AS user_name
+                FROM land_requests lr
+                         JOIN users u ON lr.user_id = u.id
+                WHERE lr.garden_id = $1
+                ORDER BY lr.created_at DESC
+            `,
+            [gardenId]
+        );
+
+        // Format the response so that each request has a "user" field with the name property,
+        // matching what the front end expects.
+        const landRequests = result.rows.map(row => ({
+            id: row.id,
+            garden_id: row.garden_id,
+            user: {name: row.user_name},
+            requested_land: row.requested_land,
+            contact_info: row.contact_info,
+            message: row.message,
+            status: row.status,
+            start_date: row.start_date,
+            end_date: row.end_date,
+            extension_message: row.extension_message,
+            previous_end_date: row.previous_end_date,
+            proposed_end_date: row.proposed_end_date,
+            created_at: row.created_at,
+            updated_at: row.updated_at
+        }));
+
+        res.json(landRequests);
+    } catch (error) {
+        console.error("Error fetching land requests for garden:", error);
+        res.status(500).json({error: error.message || "Internal server error"});
     }
 });
 

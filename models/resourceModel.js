@@ -91,7 +91,23 @@ const Resource = {
     `;
         const result = await pool.query(query, [status, requestId]);
         return result.rows[0];
+    },
+
+    async getResourceRequests(userId) {
+        const query = `
+            SELECT
+                rr.*,
+                u.name AS requester_name,
+                r.title AS resource_title
+            FROM resource_requests rr
+                     JOIN resources r ON rr.resource_id = r.id
+                     LEFT JOIN users u ON rr.requester_id = u.id
+            WHERE r.owner_id = $1
+        `;
+        const result = await pool.query(query, [userId]);
+        return result.rows;
     }
+
 };
 
 module.exports = Resource;

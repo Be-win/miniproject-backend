@@ -1,40 +1,49 @@
 const pool = require("./connection");
 
 const Garden = {
-    async getGardens({ search, type, limit, offset }) {
+    async getGardens({ search, type, limit, offset, ownerId }) {
         try {
-            let query = `
-                SELECT
-                    g.*,
-                    ST_X(ST_AsEWKT(g.location)::geometry) AS longitude,
-                    ST_Y(ST_AsEWKT(g.location)::geometry) AS latitude,
-                    COALESCE(
-                            (SELECT gi.image_url
-                             FROM garden_images gi
-                             WHERE gi.garden_id = g.id
-                             ORDER BY gi.uploaded_at
-                             LIMIT 1),
-                            'https://placehold.co/600x400?text=No+Image'
-                    ) as image_url
-                FROM gardens g
-                WHERE LOWER(g.name) LIKE LOWER($1)
-            `;
+            const whereClauses = [];
+            const values = [];
+            let paramIndex = 1;
 
-            const values = [`%${search}%`];
-            let paramIndex = 2;
+            // Always include search condition
+            whereClauses.push(`LOWER(g.name) LIKE LOWER($${paramIndex++})`);
+            values.push(`%${search}%`);
 
             if (type) {
-                query += ` AND g.type = $${paramIndex++}::text`;
+                whereClauses.push(`g.type = $${paramIndex++}`);
                 values.push(type);
             }
 
-            query += `
-                ORDER BY g.id
-                LIMIT $${paramIndex++}
-                OFFSET $${paramIndex++}
-            `;
-            values.push(limit, offset);
+            if (ownerId) {
+                whereClauses.push(`g.owner_id = $${paramIndex++}`);
+                values.push(ownerId);
+            }
 
+            const where = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+
+            const query = `
+            SELECT
+                g.*,
+                ST_X(ST_AsEWKT(g.location)::geometry) AS longitude,
+                ST_Y(ST_AsEWKT(g.location)::geometry) AS latitude,
+                COALESCE(
+                    (SELECT gi.image_url
+                     FROM garden_images gi
+                     WHERE gi.garden_id = g.id
+                     ORDER BY gi.uploaded_at
+                     LIMIT 1),
+                    'https://placehold.co/600x400?text=No+Image'
+                ) as image_url
+            FROM gardens g
+            ${where}
+            ORDER BY g.created_at DESC
+            LIMIT $${paramIndex++}
+            OFFSET $${paramIndex++}
+        `;
+
+            values.push(limit, offset);
             const result = await pool.query(query, values);
             return result.rows;
         } catch (err) {
@@ -43,20 +52,31 @@ const Garden = {
         }
     },
 
-    async getTotalCount({ search, type }) {
+    async getTotalCount({ search, type, ownerId }) {
         try {
-            let query = `
-                SELECT COUNT(*)
-                FROM gardens
-                WHERE LOWER(name) LIKE LOWER($1)
-            `;
-            const values = [`%${search}%`];
-            let paramIndex = 2;
+            const whereClauses = [];
+            const values = [];
+            let paramIndex = 1;
+
+            whereClauses.push(`LOWER(name) LIKE LOWER($${paramIndex++})`);
+            values.push(`%${search}%`);
 
             if (type) {
-                query += ` AND type = $${paramIndex++}`;
+                whereClauses.push(`type = $${paramIndex++}`);
                 values.push(type);
             }
+
+            if (ownerId) {
+                whereClauses.push(`owner_id = $${paramIndex++}`);
+                values.push(ownerId);
+            }
+
+            const where = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+
+            const query = `
+                SELECT COUNT(*)
+                FROM gardens ${where}
+            `;
 
             const result = await pool.query(query, values);
             return parseInt(result.rows[0].count, 10);

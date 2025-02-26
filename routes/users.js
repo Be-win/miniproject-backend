@@ -105,18 +105,21 @@ router.get("/allocations", authenticate, async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT
-        id,
-        garden_id,
-        requested_land,
+        lr.id,
+        lr.garden_id,
+        g.name AS garden_name,
+        lr.requested_land,
+        lr.start_date,
         CASE
-          WHEN status = 'pending_extension' THEN previous_end_date
-          ELSE end_date
+          WHEN lr.status = 'pending_extension' THEN lr.previous_end_date
+          ELSE lr.end_date
           END AS end_date,
-        proposed_end_date,
-        status
-      FROM land_requests
-      WHERE user_id = $1
-        AND status IN ('approved', 'pending_extension', 'active')
+        lr.proposed_end_date,
+        lr.status
+      FROM land_requests lr
+             JOIN gardens g ON g.id = lr.garden_id
+      WHERE lr.user_id = $1
+        AND lr.status IN ('approved', 'pending' ,'pending_extension', 'active')
     `, [req.user.id]);
 
     res.json({ data: result.rows });
@@ -125,6 +128,7 @@ router.get("/allocations", authenticate, async (req, res) => {
     res.status(500).json({ error: "Failed to fetch allocations" });
   }
 });
+
 
 
 module.exports = router;

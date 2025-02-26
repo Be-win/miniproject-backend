@@ -89,4 +89,14 @@ router.patch('/requests/:requestId', authenticate, async (req, res) => {
     }
 });
 
+router.get('/requests', authenticate, async (req, res) => {
+    try {
+        const requests = await Resource.getResourceRequests(req.user.id);
+        res.json(requests);
+    } catch (error) {
+        console.error('Error fetching resource requests:', error);
+        res.status(500).json({ error: 'Failed to fetch requests' });
+    }
+});
+
 module.exports = router;
