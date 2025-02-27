@@ -16,6 +16,16 @@ const s3 = new AWS.S3({
     region: process.env.AWS_REGION
 });
 
+// Helper function to format dates consistently
+const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+    });
+};
+
 // Image upload endpoint
 router.post("/upload-image", authenticate, async (req, res) => {
     try {
@@ -61,6 +71,10 @@ router.post("/create-garden", authenticate, validateRequest, async (req, res) =>
             total_land,
             type,
             images,
+            soil_type,
+            irrigation = false,
+            electricity = false,
+            previous_crops = '',
         } = req.body;
 
         // Create garden with transaction
@@ -73,7 +87,11 @@ router.post("/create-garden", authenticate, validateRequest, async (req, res) =>
             latitude,
             total_land,
             type: type || "community",
-            images
+            images,
+            soil_type,
+            irrigation,
+            electricity,
+            previous_crops
         });
 
         res.status(201).json({
@@ -162,7 +180,8 @@ router.get("/:id", async (req, res) => {
     }
 });
 
-// Create land request with date validation
+
+// Create new land request
 router.post("/:id/requests", authenticate, [
     body('requested_land').isFloat({min: 0.01}),
     body('start_date')
@@ -228,6 +247,13 @@ router.post("/:id/requests", authenticate, [
             });
         }
 
+        // Get requester information for more personalized notifications
+        const requester = await pool.query(
+            `SELECT username, email FROM users WHERE id = $1`,
+            [userId]
+        );
+        const requesterUsername = requester.rows[0]?.username || "A user";
+
         // Create request
         const newRequest = await pool.query(
             `INSERT INTO land_requests (garden_id,
@@ -251,20 +277,22 @@ router.post("/:id/requests", authenticate, [
             ]
         );
 
-        // Create notification
+        // Create notification with improved content
         await pool.query(
             `INSERT INTO land_allocation_notifications (user_id,
                                                         from_user,
                                                         garden_id,
                                                         type,
-                                                        message)
-             VALUES ($1, $2, $3, $4, $5)`,
+                                                        message,
+                                                        request_id)
+             VALUES ($1, $2, $3, $4, $5, $6)`,
             [
                 garden.owner_id,
                 userId,
                 gardenId,
-                'request',
-                `New land request for ${garden.name} (${requested_land} units)`
+                'new_request',
+                `${requesterUsername} has requested ${requested_land} units in ${garden.name} from ${formatDate(start_date)} to ${formatDate(end_date)}. Please review this request at your earliest convenience.`,
+                newRequest.rows[0].id
             ]
         );
 
@@ -293,9 +321,11 @@ router.patch("/requests/:id", authenticate, async (req, res) => {
 
         // Get request with garden details
         const request = await pool.query(
-            `SELECT lr.*, g.owner_id, g.allocated_land, g.total_land
+            `SELECT lr.*, g.owner_id, g.allocated_land, g.total_land, g.name as garden_name,
+                    u.username as requester_username
              FROM land_requests lr
                       JOIN gardens g ON lr.garden_id = g.id
+                      JOIN users u ON lr.user_id = u.id
              WHERE lr.id = $1`,
             [requestId]
         );
@@ -371,25 +401,40 @@ router.patch("/requests/:id", authenticate, async (req, res) => {
 
         await pool.query('COMMIT');
 
-        // Create notification
+        // Get admin username for personalized notification
+        const admin = await pool.query(
+            `SELECT username FROM users WHERE id = $1`,
+            [req.user.id]
+        );
+        const adminUsername = admin.rows[0]?.username || "Garden administrator";
+
+        // Create notification with improved content
         let notificationMessage;
+        let notificationType = 'status_update';
+
         if (status === 'approved') {
-            notificationMessage = `Your land request for ${currentRequest.requested_land} units 
-                                  (${currentRequest.start_date} to ${currentRequest.end_date}) 
-                                  was approved`;
+            notificationMessage = `🎉 Good news! ${adminUsername} has approved your request for ${currentRequest.requested_land} units at ${currentRequest.garden_name}. Your allocation is valid from ${formatDate(currentRequest.start_date)} to ${formatDate(currentRequest.end_date)}.`;
+            notificationType = 'request_approved';
+        } else if (status === 'rejected') {
+            notificationMessage = `${adminUsername} has declined your request for ${currentRequest.requested_land} units at ${currentRequest.garden_name}. Please contact them directly for more information.`;
+            notificationType = 'request_rejected';
+        } else if (status === 'expired') {
+            notificationMessage = `Your land allocation request for ${currentRequest.garden_name} has expired. If you need more time, you can submit a new request.`;
+            notificationType = 'request_expired';
         } else {
-            notificationMessage = `Your land request status changed to ${status}`;
+            notificationMessage = `The status of your land request for ${currentRequest.garden_name} has been updated to "${status}".`;
         }
 
         await pool.query(
-            `INSERT INTO land_allocation_notifications (user_id, from_user, garden_id, type, message)
-             VALUES ($1, $2, $3, $4, $5)`,
+            `INSERT INTO land_allocation_notifications (user_id, from_user, garden_id, type, message, request_id)
+             VALUES ($1, $2, $3, $4, $5, $6)`,
             [
                 currentRequest.user_id,
                 req.user.id,
                 currentRequest.garden_id,
-                'status_update',
-                notificationMessage
+                notificationType,
+                notificationMessage,
+                requestId
             ]
         );
 
@@ -432,7 +477,7 @@ router.get("/requests/:requestId", authenticate, async (req, res) => {
     }
 });
 
-// Extension request endpoint
+// Extension request route
 router.post("/requests/:id/extend", authenticate, [
     body('end_date').isDate(),
     body('message').isLength({min: 10})
@@ -441,11 +486,13 @@ router.post("/requests/:id/extend", authenticate, [
         const requestId = parseInt(req.params.id, 10);
         const {end_date, message} = req.body;
 
-        // Get request with current dates
+        // Get request with current dates and additional info
         const request = await pool.query(`
-            SELECT *, g.owner_id
+            SELECT lr.*, g.owner_id, g.name as garden_name,
+                   u.username as requester_username
             FROM land_requests lr
                      JOIN gardens g ON lr.garden_id = g.id
+                     JOIN users u ON lr.user_id = u.id
             WHERE lr.id = $1
         `, [requestId]);
 
@@ -475,7 +522,7 @@ router.post("/requests/:id/extend", authenticate, [
             RETURNING *
         `, [end_date, message, requestId]);
 
-        // Notification
+        // Improved notification message
         await pool.query(`
             INSERT INTO land_allocation_notifications (user_id, from_user, garden_id, type, message, request_id)
             VALUES ($1, $2, $3, $4, $5, $6)
@@ -484,8 +531,7 @@ router.post("/requests/:id/extend", authenticate, [
             req.user.id,
             currentData.garden_id,
             'extension_request',
-            // Use proposed_end_date from the updated request data
-            `Extension request for ${currentData.requested_land} units until ${updatedRequest.rows[0].proposed_end_date}`,
+            `${currentData.requester_username} would like to extend their ${currentData.requested_land} unit allocation in ${currentData.garden_name} from ${formatDate(currentData.end_date)} to ${formatDate(end_date)}. Reason: "${message.substring(0, 50)}${message.length > 50 ? '...' : ''}"`,
             requestId
         ]);
 

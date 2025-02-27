@@ -1,12 +1,7 @@
 const Joi = require('joi');
 
 const validateRequest = (req, res, next) => {
-    console.log(req.body);
     const schema = Joi.object({
-        // owner_id: Joi.string().required().messages({ // Add validation for owner_id
-        //     'any.required': 'Owner ID is required',
-        //     'string.empty': 'Owner ID cannot be empty'
-        // }),
         name: Joi.string().required().messages({
             'any.required': 'Name is required',
             'string.empty': 'Name cannot be empty'
@@ -34,7 +29,11 @@ const validateRequest = (req, res, next) => {
             'any.required': 'Total land is required'
         }),
         type: Joi.string().valid('community', 'rent', 'charity').default('community'),
-        images: Joi.array().items(Joi.string().uri()).optional()
+        images: Joi.array().items(Joi.string().uri()).optional(),
+        soil_type: Joi.string().allow('').optional(),
+        irrigation: Joi.boolean().default(false),
+        electricity: Joi.boolean().default(false),
+        previous_crops: Joi.string().allow('').optional()
     });
 
     const { error } = schema.validate(req.body, { abortEarly: false });

@@ -12,6 +12,18 @@ const createTables = async () => {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
 
+            CREATE TABLE IF NOT EXISTS user_profile
+            (
+                user_id         INTEGER PRIMARY KEY REFERENCES users (id) ON DELETE CASCADE,
+                bio             TEXT,
+                full_name       VARCHAR(100),
+                phone           VARCHAR(20),
+                address         TEXT,
+                profile_pic_url VARCHAR(255),
+                created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+
             CREATE TABLE IF NOT EXISTS topics
             (
                 id    SERIAL PRIMARY KEY,
@@ -35,12 +47,13 @@ const createTables = async () => {
                 CONSTRAINT chk_allocated_land CHECK (allocated_land <= total_land)
             );
 
-            CREATE TABLE IF NOT EXISTS garden_volunteers
+            CREATE TABLE IF NOT EXISTS garden_features
             (
-                id        SERIAL PRIMARY KEY,
-                garden_id INTEGER NOT NULL REFERENCES gardens (id) ON DELETE CASCADE,
-                user_id   INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
-                joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                garden_id      INTEGER PRIMARY KEY REFERENCES gardens (id) ON DELETE CASCADE,
+                soil_type      VARCHAR(255),
+                irrigation     BOOLEAN,
+                electricity    BOOLEAN,
+                previous_crops TEXT
             );
 
             CREATE TABLE IF NOT EXISTS garden_images
