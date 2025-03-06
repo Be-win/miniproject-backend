@@ -12,6 +12,7 @@ const sustainabilityRouter = require("./routes/sustainability");
 const gardenRoutes = require("./routes/garden");
 const notificationRoutes = require("./routes/notifications");
 const resourceRoutes = require('./routes/resources');
+const reviewsRouter = require('./routes/reviews.js');
 
 const app = express();
 
@@ -48,6 +49,7 @@ app.use('/sustainability', sustainabilityRouter);
 app.use("/garden", gardenRoutes);
 app.use("/notifications", notificationRoutes);
 app.use("/api/resources", resourceRoutes);
+app.use("/api/reviews", reviewsRouter);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
