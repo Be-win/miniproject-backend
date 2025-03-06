@@ -86,7 +86,6 @@ router.post("/login", async (req, res) => {
 // Example protected route
 router.get("/profile", async (req, res) => {
   const email = req.query.email;
-  console.log("email", email);
   if (!email) {
     return res.status(400).json({ error: "Email is required" });
   }
@@ -242,6 +241,36 @@ router.post("/upload-profile-pic", authenticate, async (req, res) => {
   } catch (error) {
     console.error("Profile picture upload failed:", error);
     res.status(500).json({error: error.message || "Failed to upload image"});
+  }
+});
+
+// Profile picture endpoint (typically in your user routes)
+router.get('/profile-pic', authenticate, async (req, res) => {
+  try {
+    // Get user ID from authenticated request
+    const userId = req.user.id;
+
+    // Query with JOIN to get profile information
+    const result = await pool.query(`
+      SELECT u.id, u.name, u.email, up.profile_pic_url
+      FROM users u
+      LEFT JOIN user_profile up ON u.id = up.user_id
+      WHERE u.id = $1
+    `, [userId]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const userData = result.rows[0];
+
+    res.json({
+      profilePicUrl: userData.profile_pic_url
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
   }
 });
 

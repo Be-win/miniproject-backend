@@ -6,6 +6,7 @@ const {
     submitArticle,
     getTopArticles,
     upvoteArticle,
+    downvoteArticle,
 } = require("../models/sustainabilityModel");
 const authenticateToken = require("../middleware/authenticateToken");
 
@@ -45,27 +46,50 @@ router.post("/submit-article", async (req, res) => {
 });
 
 // Get Top Articles
-router.get("/top-articles", async (req, res) => {
+router.get("/top-articles", authenticateToken.optional, async (req, res) => {
     try {
-        const articles = await getTopArticles();
+        const userId = req.user?.id;
+        const articles = await getTopArticles(userId);
         res.status(200).json({ articles });
     } catch (err) {
-        res.status(500).json({ error: "Failed to fetch top articles." });
+        console.error("Error fetching articles:", err);
+        res.status(500).json({
+            error: process.env.NODE_ENV === 'development'
+                ? err.message
+                : "Failed to fetch top articles"
+        });
     }
 });
 
 // Upvote an Article
-router.post("/upvote-article/:id", async (req, res) => {
+router.post("/upvote-article/:id", authenticateToken, async (req, res) => {
     const articleId = req.params.id;
+    const userId = req.user.id;
 
     try {
-        const updatedArticle = await upvoteArticle(articleId);
-        if (!updatedArticle) {
-            return res.status(404).json({ error: "Article not found." });
-        }
-        res.status(200).json({ message: "Article upvoted successfully.", article: updatedArticle });
+        const updatedArticle = await upvoteArticle(articleId, userId);
+        res.status(200).json({
+            message: "Upvote updated successfully.",
+            article: updatedArticle
+        });
     } catch (err) {
-        res.status(500).json({ error: "Failed to upvote article." });
+        res.status(500).json({ error: "Failed to update upvote." });
+    }
+});
+
+// Downvote route
+router.post("/downvote-article/:id", authenticateToken, async (req, res) => {
+    const articleId = req.params.id;
+    const userId = req.user.id;
+
+    try {
+        const updatedArticle = await downvoteArticle(articleId, userId);
+        res.status(200).json({
+            message: "Downvote updated successfully.",
+            article: updatedArticle
+        });
+    } catch (err) {
+        res.status(500).json({ error: "Failed to update downvote." });
     }
 });
 
