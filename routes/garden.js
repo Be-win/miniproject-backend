@@ -249,7 +249,7 @@ router.post("/:id/requests", authenticate, [
 
         // Get requester information for more personalized notifications
         const requester = await pool.query(
-            `SELECT username, email FROM users WHERE id = $1`,
+            `SELECT name, email FROM users WHERE id = $1`,
             [userId]
         );
         const requesterUsername = requester.rows[0]?.username || "A user";
@@ -290,7 +290,7 @@ router.post("/:id/requests", authenticate, [
                 garden.owner_id,
                 userId,
                 gardenId,
-                'new_request',
+                'request',
                 `${requesterUsername} has requested ${requested_land} units in ${garden.name} from ${formatDate(start_date)} to ${formatDate(end_date)}. Please review this request at your earliest convenience.`,
                 newRequest.rows[0].id
             ]
@@ -322,7 +322,7 @@ router.patch("/requests/:id", authenticate, async (req, res) => {
         // Get request with garden details
         const request = await pool.query(
             `SELECT lr.*, g.owner_id, g.allocated_land, g.total_land, g.name as garden_name,
-                    u.username as requester_username
+                    u.name as requester_username
              FROM land_requests lr
                       JOIN gardens g ON lr.garden_id = g.id
                       JOIN users u ON lr.user_id = u.id
@@ -403,7 +403,7 @@ router.patch("/requests/:id", authenticate, async (req, res) => {
 
         // Get admin username for personalized notification
         const admin = await pool.query(
-            `SELECT username FROM users WHERE id = $1`,
+            `SELECT name FROM users WHERE id = $1`,
             [req.user.id]
         );
         const adminUsername = admin.rows[0]?.username || "Garden administrator";
@@ -489,7 +489,7 @@ router.post("/requests/:id/extend", authenticate, [
         // Get request with current dates and additional info
         const request = await pool.query(`
             SELECT lr.*, g.owner_id, g.name as garden_name,
-                   u.username as requester_username
+                   u.name as requester_username
             FROM land_requests lr
                      JOIN gardens g ON lr.garden_id = g.id
                      JOIN users u ON lr.user_id = u.id
