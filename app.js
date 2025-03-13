@@ -19,7 +19,7 @@ const app = express();
 // Enable CORS for your frontend origin (replace with your actual frontend URL if different)
 const corsOptions = {
   origin: [
-      'https://miniproject-frontend-pied.vercel.app/',
+      'https://miniproject-frontend-pied.vercel.app',
       'http://localhost:5173'
   ],
   methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
