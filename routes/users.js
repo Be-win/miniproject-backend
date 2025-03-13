@@ -274,6 +274,16 @@ router.get('/profile-pic', authenticate, async (req, res) => {
   }
 });
 
+// Add to your routes
+router.get('/debug-env', (req, res) => {
+  res.json({
+    host: process.env.POSTGRES_HOST,
+    user: process.env.POSTGRES_USER,
+    db: process.env.POSTGRES_DB,
+    port: process.env.POSTGRES_PORT
+  });
+});
+
 
 
 module.exports = router;
