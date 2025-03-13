@@ -18,7 +18,10 @@ const app = express();
 
 // Enable CORS for your frontend origin (replace with your actual frontend URL if different)
 const corsOptions = {
-  origin: 'http://localhost:5173',  // Frontend URL
+  origin: [
+      'https://miniproject-frontend-pied.vercel.app/',
+      'http://localhost:5173'
+  ],
   methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
   credentials: true,
   allowedHeaders: ['Content-Type', 'Authorization'],
@@ -66,5 +69,9 @@ app.use(function(err, req, res, next) {
   res.status(err.status || 500);
   res.render('error');
 });
+
+if (process.env.VERCEL) {
+  console.log('Running in Vercel environment');
+}
 
 module.exports = app;
