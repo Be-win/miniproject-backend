@@ -7,8 +7,69 @@ const {
     getTopArticles,
     upvoteArticle,
     downvoteArticle,
-} = require("../models/sustainabilityModel");
+    getUserArticles,
+    updateArticle,
+    deleteArticle
+} = require('../models/sustainabilityModel');
 const authenticateToken = require("../middleware/authenticateToken");
+
+// Get authenticated user's articles
+router.get('/my-articles', authenticateToken, async (req, res) => {
+    try {
+        const articles = await getUserArticles(req.user.id);
+        res.status(200).json({ articles });
+    } catch (err) {
+        res.status(500).json({
+            error: process.env.NODE_ENV === 'development'
+                ? err.message
+                : 'Failed to fetch user articles'
+        });
+    }
+});
+
+// Update an article
+router.put('/articles/:id', authenticateToken, async (req, res) => {
+    try {
+        const { title, content } = req.body;
+        const article = await updateArticle(
+            req.params.id,
+            req.user.id,
+            title,
+            content
+        );
+
+        if (!article) {
+            return res.status(404).json({ error: 'Article not found or unauthorized' });
+        }
+
+        res.status(200).json({ article });
+    } catch (err) {
+        res.status(500).json({
+            error: process.env.NODE_ENV === 'development'
+                ? err.message
+                : 'Failed to update article'
+        });
+    }
+});
+
+// Delete an article
+router.delete('/articles/:id', authenticateToken, async (req, res) => {
+    try {
+        const article = await deleteArticle(req.params.id, req.user.id);
+
+        if (!article) {
+            return res.status(404).json({ error: 'Article not found or unauthorized' });
+        }
+
+        res.status(200).json({ message: 'Article deleted successfully' });
+    } catch (err) {
+        res.status(500).json({
+            error: process.env.NODE_ENV === 'development'
+                ? err.message
+                : 'Failed to delete article'
+        });
+    }
+});
 
 // Get Topic of the Day
 router.get("/topic-of-the-day", async (req, res) => {

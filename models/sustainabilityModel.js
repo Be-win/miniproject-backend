@@ -187,10 +187,73 @@ const downvoteArticle = async (articleId, userId) => {
     }
 };
 
+// Get user's articles
+const getUserArticles = async (userId) => {
+    const query = `
+        SELECT *, 
+            EXISTS (SELECT 1 FROM article_upvotes WHERE article_id = a.id AND user_id = $1) as has_upvoted,
+            EXISTS (SELECT 1 FROM article_downvotes WHERE article_id = a.id AND user_id = $1) as has_downvoted
+        FROM articles a
+        WHERE user_id = $1
+        ORDER BY created_at DESC
+    `;
+    const result = await pool.query(query, [userId]);
+    return result.rows;
+};
+
+// Update article
+const updateArticle = async (articleId, userId, title, content) => {
+    const query = `
+        UPDATE articles
+        SET title = $1, content = $2, updated_at = NOW()
+        WHERE id = $3 AND user_id = $4
+        RETURNING *
+    `;
+    const values = [title, content, articleId, userId];
+    const result = await pool.query(query, values);
+    return result.rows[0];
+};
+
+// Delete article
+const deleteArticle = async (articleId, userId) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        // Delete votes first
+        await client.query(
+            'DELETE FROM article_upvotes WHERE article_id = $1',
+            [articleId]
+        );
+        await client.query(
+            'DELETE FROM article_downvotes WHERE article_id = $1',
+            [articleId]
+        );
+
+        // Delete article
+        const result = await client.query(
+            'DELETE FROM articles WHERE id = $1 AND user_id = $2 RETURNING *',
+            [articleId, userId]
+        );
+
+        await client.query('COMMIT');
+        return result.rows[0];
+    } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+    } finally {
+        client.release();
+    }
+};
+
+
 module.exports = {
     getRandomTopic,
     submitArticle,
     getTopArticles,
     upvoteArticle,
     downvoteArticle,
+    getUserArticles,
+    updateArticle,
+    deleteArticle
 };
