@@ -7,7 +7,7 @@
       "methods": ["OPTIONS"],
       "dest": "app.js",
       "headers": {
-        "Access-Control-Allow-Origin": "https://miniproject-frontend-pied.vercel.app",
+        "Access-Control-Allow-Origin": "https://www.willowandthrive.shop",
         "Access-Control-Allow-Methods": "POST, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type, Authorization"
       }
