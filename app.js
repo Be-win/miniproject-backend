@@ -19,6 +19,7 @@ const app = express();
 // Enable CORS for your frontend origin (replace with your actual frontend URL if different)
 const corsOptions = {
   origin: [
+      'https://www.willowandthrive.shop',
       'https://miniproject-frontend-pied.vercel.app',
       'http://localhost:5173'
   ],
