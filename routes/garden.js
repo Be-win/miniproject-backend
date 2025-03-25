@@ -27,7 +27,7 @@ const formatDate = (dateString) => {
 };
 
 // Image upload endpoint
-router.post("/upload-image", async (req, res) => {
+router.post("/upload-image", authenticate, async (req, res) => {
     try {
         // console.log("Request headers:", req.headers); // Log headers
         // console.log("Request body:", req.body); // Log body
