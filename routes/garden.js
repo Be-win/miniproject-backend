@@ -26,6 +26,13 @@ const formatDate = (dateString) => {
     });
 };
 
+router.options('/upload-image', (req, res) => {
+    res.setHeader('Access-Control-Allow-Origin', 'https://miniproject-frontend-pied.vercel.app');
+    res.setHeader('Access-Control-Allow-Methods', 'POST');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.status(200).end();
+});
+
 // Image upload endpoint
 router.post("/upload-image", authenticate, async (req, res) => {
     try {

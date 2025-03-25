@@ -1,15 +1,11 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "app.js",
-      "use": "@vercel/node"
-    }
-  ],
+  "builds": [{"src": "app.js", "use": "@vercel/node"}],
   "routes": [
     {
       "src": "/garden/upload-image",
-      "methods": ["POST", "OPTIONS"],
+      "methods": ["OPTIONS"],
+      "dest": "app.js",
       "headers": {
         "Access-Control-Allow-Origin": "https://miniproject-frontend-pied.vercel.app",
         "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -18,11 +14,7 @@
     },
     {
       "src": "/(.*)",
-      "dest": "app.js",
-      "headers": {
-        "Access-Control-Allow-Origin": "https://miniproject-frontend-pied.vercel.app",
-        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS"
-      }
+      "dest": "app.js"
     }
   ]
 }
