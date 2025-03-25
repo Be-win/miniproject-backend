@@ -138,7 +138,7 @@ router.post("/upvote-article/:id", authenticateToken, async (req, res) => {
     }
 });
 
-// Downvote route
+// Down vote route
 router.post("/downvote-article/:id", authenticateToken, async (req, res) => {
     const articleId = req.params.id;
     const userId = req.user.id;
