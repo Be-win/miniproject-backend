@@ -750,5 +750,29 @@ router.get("/:id/land_requests", async (req, res) => {
     }
 });
 
+// Report a garden
+router.post("/:id/report", authenticate, async (req, res) => {
+    try {
+        const { subject, description } = req.body;
+        const gardenId = req.params.id;
+
+        if (!subject || !description) {
+            return res.status(400).json({ error: "Subject and description are required" });
+        }
+
+        const result = await pool.query(
+            `INSERT INTO garden_reports 
+            (garden_id, user_id, subject, description)
+            VALUES ($1, $2, $3, $4)
+            RETURNING *`,
+            [gardenId, req.user.id, subject, description]
+        );
+
+        res.status(201).json(result.rows[0]);
+    } catch (error) {
+        console.error("Error submitting report:", error);
+        res.status(500).json({ error: "Failed to submit report" });
+    }
+});
 
 module.exports = router;

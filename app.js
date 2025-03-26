@@ -13,6 +13,7 @@ const gardenRoutes = require("./routes/garden");
 const notificationRoutes = require("./routes/notifications");
 const resourceRoutes = require('./routes/resources');
 const reviewsRouter = require('./routes/reviews.js');
+const adminRouter = require('./routes/admin');
 
 const app = express();
 
@@ -56,6 +57,7 @@ app.use("/garden", gardenRoutes);
 app.use("/notifications", notificationRoutes);
 app.use("/api/resources", resourceRoutes);
 app.use("/api/reviews", reviewsRouter);
+app.use('/admin', adminRouter);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
