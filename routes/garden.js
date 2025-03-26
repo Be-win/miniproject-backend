@@ -697,37 +697,39 @@ router.patch("/requests/:id/extend", authenticate, async (req, res) => {
 
 router.get("/:id/land_requests", async (req, res) => {
     try {
-        // Validate garden ID from URL parameter
         const gardenId = parseInt(req.params.id, 10);
         if (isNaN(gardenId) || gardenId < 1) {
             return res.status(400).json({error: "Invalid garden ID"});
         }
 
-        // (Optional) Check if the garden exists
         const garden = await getGardenById(gardenId);
         if (!garden) {
             return res.status(404).json({error: "Garden not found"});
         }
 
-        // Fetch all land requests for the given garden and join with users to get the volunteer name
         const result = await pool.query(
             `
                 SELECT lr.*,
-                       u.name AS user_name
+                       u.id AS user_id,
+                       u.name AS user_name,
+                       up.profile_pic_url
                 FROM land_requests lr
                          JOIN users u ON lr.user_id = u.id
+                         LEFT JOIN user_profile up ON u.id = up.user_id
                 WHERE lr.garden_id = $1
                 ORDER BY lr.created_at DESC
             `,
             [gardenId]
         );
 
-        // Format the response so that each request has a "user" field with the name property,
-        // matching what the front end expects.
         const landRequests = result.rows.map(row => ({
             id: row.id,
             garden_id: row.garden_id,
-            user: {name: row.user_name},
+            user: {
+                id: row.user_id,
+                name: row.user_name,
+                profile_pic: row.profile_pic_url
+            },
             requested_land: row.requested_land,
             contact_info: row.contact_info,
             message: row.message,
