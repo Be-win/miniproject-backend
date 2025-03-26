@@ -2,13 +2,50 @@ const pool = require("./connection");
 
 // Get Topic of the Day
 const getRandomTopic = async () => {
-    const query = `
-    SELECT * FROM topics
-    ORDER BY RANDOM()
-    LIMIT 1;
-  `;
-    const result = await pool.query(query);
-    return result.rows[0];
+    const checkQuery = `
+        SELECT dt.topic_id, t.title, t.date
+        FROM daily_topics dt
+                 JOIN topics t ON dt.topic_id = t.id
+        WHERE dt.date = CURRENT_DATE
+    `;
+    const checkResult = await pool.query(checkQuery);
+
+    if (checkResult.rows.length > 0) {
+        return checkResult.rows[0];
+    } else {
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+
+            const randomResult = await client.query(
+                'SELECT * FROM topics ORDER BY RANDOM() LIMIT 1 FOR UPDATE'
+            );
+            if (randomResult.rows.length === 0) throw new Error('No topics available');
+            const selectedTopic = randomResult.rows[0];
+
+            const insertResult = await client.query(
+                `INSERT INTO daily_topics (topic_id, date)
+                 VALUES ($1, CURRENT_DATE)
+                 ON CONFLICT (date) DO NOTHING
+                 RETURNING *`,
+                [selectedTopic.id]
+            );
+
+            if (insertResult.rows.length === 0) {
+                const existingResult = await client.query(checkQuery);
+                await client.query('COMMIT');
+                return existingResult.rows[0];
+            } else {
+                await client.query('COMMIT');
+                return selectedTopic;
+            }
+        } catch (error) {
+            await client.query('ROLLBACK');
+            throw error;
+        } finally {
+            client.release();
+        }
+    }
 };
 
 // Submit an Article
