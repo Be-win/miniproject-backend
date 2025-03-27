@@ -90,11 +90,6 @@ const Garden = {
         try {
             await client.query('BEGIN');
 
-            // Create geography point
-            // const pointQuery = `
-            //     ST_SetSRID(ST_MakePoint($1, $2), 4326)
-            // `;
-
             // Insert garden
             const gardenQuery = `
                 INSERT INTO gardens (owner_id,
@@ -108,13 +103,12 @@ const Garden = {
                 RETURNING *;
             `;
 
-            // Correct parameter order: address is $6, total_land $7, type $8
             const gardenValues = [
                 gardenData.owner_id,
                 gardenData.name,
                 gardenData.description,
-                gardenData.longitude, // $4: longitude
-                gardenData.latitude,   // $5: latitude
+                gardenData.longitude,
+                gardenData.latitude,
                 gardenData.address,
                 gardenData.total_land,
                 gardenData.type || 'community'
@@ -160,10 +154,6 @@ const Garden = {
         }
     },
 
-    //Helper method for creating point
-    // createPoint(longitude, latitude) {
-    //     return `ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)`;
-    // }
     async createLandRequest(landReqData) {
         const client = await pool.connect();
         try {
@@ -221,7 +211,6 @@ const Garden = {
 
             if (rows.length === 0) return null;
 
-            // Structure the result
             const landRequest = {
                 ...rows[0],
                 Garden: {
@@ -236,7 +225,6 @@ const Garden = {
                 }
             };
 
-            // Remove duplicated fields
             delete landRequest.garden_id;
             delete landRequest.owner_id;
             delete landRequest.garden_name;
@@ -255,7 +243,6 @@ const Garden = {
 
 };
 
-// Add image upload related functions
 const GardenImage = {
     async uploadImage(gardenId, imageUrl) {
         try {

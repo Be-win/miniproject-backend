@@ -1,5 +1,5 @@
 const { Pool } = require("pg");
-require("dotenv").config(); // Load environment variables from .env file
+require("dotenv").config();
 
 const pool = new Pool({
     host: process.env.POSTGRES_HOST,
@@ -8,7 +8,7 @@ const pool = new Pool({
     database: process.env.POSTGRES_DB,
     port: process.env.POSTGRES_PORT,
     ssl: {
-        rejectUnauthorized: false // Required for self-signed certificates
+        rejectUnauthorized: false
     }
 });
 

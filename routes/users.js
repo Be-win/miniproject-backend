@@ -14,7 +14,7 @@ const SECRET_KEY = process.env.JWT_SECRET // Replace with a strong secret key in
 // Middleware to verify JWT
 const authenticate = require("../middleware/authenticateToken");
 
-// Route to create a new user (Signup)
+// create a new user (Signup)
 router.post("/signup", async (req, res) => {
   const { name, email, password } = req.body;
 
@@ -33,7 +33,7 @@ router.post("/signup", async (req, res) => {
 
     // Generate a JWT token for the new user
     const token = jwt.sign({ id: newUser.id, email: newUser.email }, SECRET_KEY, {
-      expiresIn: "4h", // Token expiration time
+      expiresIn: "8h", // Token expiration time
     });
 
     res.status(201).json({
@@ -61,7 +61,7 @@ router.post("/login", async (req, res) => {
       return res.status(401).json({ error: "Invalid credentials." });
     }
 
-    // Compare the provided password with the hashed password
+    // Compare the password with the hashed password
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
     if (!isPasswordValid) {
@@ -83,7 +83,6 @@ router.post("/login", async (req, res) => {
   }
 });
 
-// Example protected route
 router.get("/profile", async (req, res) => {
   const email = req.query.email;
   if (!email) {
@@ -211,7 +210,7 @@ router.put('/profile', authenticate, async (req, res) => {
   }
 });
 
-// Profile picture upload endpoint
+// Profile picture upload
 router.post("/upload-profile-pic", authenticate, async (req, res) => {
   try {
     if (!req.files || !req.files.image) {
@@ -244,7 +243,7 @@ router.post("/upload-profile-pic", authenticate, async (req, res) => {
   }
 });
 
-// Profile picture endpoint (typically in your user routes)
+// Profile picture endpoint
 router.get('/profile-pic', authenticate, async (req, res) => {
   try {
     // Get user ID from authenticated request

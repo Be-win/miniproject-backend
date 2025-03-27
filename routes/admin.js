@@ -7,10 +7,9 @@ const isAdmin = require('../middleware/isAdmin');
 
 router.use(authenticateToken, isAdmin);
 
-// Admin dashboard summary
+// Admin dashboard
 router.get('/dashboard', authenticateToken, async (req, res) => {
     try {
-        // Get all statistics in parallel
         const [
             usersCount,
             gardensCount,
@@ -58,7 +57,6 @@ router.get('/dashboard', authenticateToken, async (req, res) => {
     }
 });
 
-// Get all reports with details (from previous implementation)
 router.get('/reports', authenticateToken, async (req, res) => {
     try {
         const query = `
@@ -83,7 +81,6 @@ router.get('/reports', authenticateToken, async (req, res) => {
     }
 });
 
-// Additional admin endpoints
 router.get('/land-requests', authenticateToken, async (req, res) => {
     try {
         const query = `

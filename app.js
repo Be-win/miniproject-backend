@@ -3,7 +3,7 @@ const express = require('express');
 const path = require('path');
 const cookieParser = require('cookie-parser');
 const logger = require('morgan');
-const cors = require('cors');  // Importing the cors module
+const cors = require('cors');
 const fileUpload = require('express-fileupload');
 
 const indexRouter = require('./routes/index');
@@ -17,7 +17,6 @@ const adminRouter = require('./routes/admin');
 
 const app = express();
 
-// Enable CORS for your frontend origin (replace with your actual frontend URL if different)
 const corsOptions = {
   origin: [
       'https://www.willowandthrive.shop',
@@ -29,8 +28,8 @@ const corsOptions = {
   allowedHeaders: ['Content-Type', 'Authorization'],
 };
 
-app.options('/garden/upload-image', cors(corsOptions)); // Explicit OPTIONS handler
-app.use(cors(corsOptions));  // Apply CORS middleware
+app.options('/garden/upload-image', cors(corsOptions));
+app.use(cors(corsOptions));
 
 app.options('*', cors()); // Enable preflight for all routes
 

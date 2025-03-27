@@ -32,7 +32,6 @@ router.get("/land-notifications", authenticate, async (req, res) => {
 });
 
 
-// PATCH /api/notifications/:notificationId
 router.patch("/:notificationId", authenticate, async (req, res) => {
     try {
         const notificationId = parseInt(req.params.notificationId, 10);
@@ -52,8 +51,6 @@ router.patch("/:notificationId", authenticate, async (req, res) => {
         // Extract the notification data
         const notification = rows[0];
 
-        // If the notification is of type 'request' and from_user is set,
-        // fetch the related land request status using garden_id and from_user.
         if (notification.type === 'request' && notification.from_user) {
             const requestQuery = `
                 SELECT status FROM land_requests

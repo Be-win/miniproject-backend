@@ -16,7 +16,7 @@ const s3 = new AWS.S3({
     region: process.env.AWS_REGION
 });
 
-// Helper function to format dates consistently
+// function to format dates consistently
 const formatDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
@@ -33,7 +33,7 @@ router.options('/upload-image', (req, res) => {
     res.status(200).end();
 });
 
-// Image upload endpoint
+// Image upload
 router.post("/upload-image", authenticate, async (req, res) => {
     try {
         // console.log("Request headers:", req.headers); // Log headers
@@ -65,7 +65,7 @@ router.post("/upload-image", authenticate, async (req, res) => {
     }
 });
 
-// Create garden endpoint
+// Create garden
 router.post("/create-garden", authenticate, validateRequest, async (req, res) => {
     console.error("Request Body:", req.body);
     try {
@@ -114,14 +114,12 @@ router.post("/create-garden", authenticate, validateRequest, async (req, res) =>
 // Get gardens with search, filter, and pagination
 router.get("/", async (req, res) => {
     try {
-        // Parse query parameters
         const page = parseInt(req.query.page, 10) || 1;
         const limit = parseInt(req.query.limit, 10) || 10;
         const search = req.query.search?.toString() || "";
         const type = req.query.type?.toString() || "";
         const ownerId = req.query.owner_id ? parseInt(req.query.owner_id, 10) : null;
 
-        // Validate parameters
         if (page < 1 || limit < 1) {
             return res.status(400).json({error: "Invalid pagination parameters"});
         }
@@ -254,7 +252,7 @@ router.post("/:id/requests", authenticate, [
             });
         }
 
-        // Get requester information for more personalized notifications
+        // personalized notifications
         const requester = await pool.query(
             `SELECT name, email FROM users WHERE id = $1`,
             [userId]
@@ -284,7 +282,7 @@ router.post("/:id/requests", authenticate, [
             ]
         );
 
-        // Create notification with improved content
+        // Create notification
         await pool.query(
             `INSERT INTO land_allocation_notifications (user_id,
                                                         from_user,
@@ -415,7 +413,7 @@ router.patch("/requests/:id", authenticate, async (req, res) => {
         );
         const adminUsername = admin.rows[0]?.username || "Garden administrator";
 
-        // Create notification with improved content
+        // Create notification
         let notificationMessage;
         let notificationType = 'status_update';
 
@@ -465,7 +463,7 @@ router.get("/requests/:requestId", authenticate, async (req, res) => {
             return res.status(400).json({error: "Invalid request ID"});
         }
 
-        // Retrieve the land request along with its associated garden details
+        // Retrieve the land request along with garden details
         const landRequest = await Garden.getLandRequestWithGarden(requestId);
         if (!landRequest) {
             return res.status(404).json({error: "Land request not found"});
@@ -493,7 +491,7 @@ router.post("/requests/:id/extend", authenticate, [
         const requestId = parseInt(req.params.id, 10);
         const {end_date, message} = req.body;
 
-        // Get request with current dates and additional info
+        // Get request
         const request = await pool.query(`
             SELECT lr.*, g.owner_id, g.name as garden_name,
                    u.name as requester_username
@@ -595,11 +593,10 @@ cron.schedule('0 0 * * *', async () => {
     } catch (error) {
         await pool.query('ROLLBACK');
         console.error("Cron job error:", error);
-        // Consider adding error monitoring here
     }
 });
 
-// New route for handling extension approvals/rejections
+// for handling extension approvals/rejections
 router.patch("/requests/:id/extend", authenticate, async (req, res) => {
     try {
         const requestId = parseInt(req.params.id, 10);

@@ -13,7 +13,7 @@ const {
 } = require('../models/sustainabilityModel');
 const authenticateToken = require("../middleware/authenticateToken");
 
-// Get authenticated user's articles
+// Get user's articles
 router.get('/my-articles', authenticateToken, async (req, res) => {
     try {
         const articles = await getUserArticles(req.user.id);
